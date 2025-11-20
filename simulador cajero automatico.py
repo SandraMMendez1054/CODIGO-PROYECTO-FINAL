@@ -14,11 +14,17 @@ class CuentaBancaria:
         return self.saldo
 
     def depositar(self, monto):
+        if monto <= 0:
+            self.historial.append(f"Intento de depósito inválido: ${monto}")
+            return None
         self.saldo += monto
         self.historial.append(f"Depósito: ${monto}")
         return self.saldo
 
     def retirar(self, monto):
+        if monto <= 0:
+            self.historial.append(f"Intento de retiro inválido: ${monto}")
+            return False
         if monto <= self.saldo:
             self.saldo -= monto
             self.historial.append(f"Retiro: ${monto}")
@@ -30,14 +36,23 @@ class CuentaBancaria:
     def buscar_en_historial(self, palabra_clave):
         return [mov for mov in self.historial if palabra_clave.lower() in mov.lower()]
 
-# Función para extraer apellido usando expresión regular
+# Función para extraer apellido con soporte para acentos y ñ
 def extraer_apellido(nombre_completo):
-    coincidencia = re.search(r'\b(\w+)$', nombre_completo)
+    coincidencia = re.search(r'\b([\wáéíóúñÁÉÍÓÚÑ]+)$', nombre_completo)
     return coincidencia.group(1) if coincidencia else ""
 
 # Función para validar credenciales
-def validar_credenciales(cuenta, pin_ingresado):
-    return cuenta.pin == pin_ingresado
+def autenticar_usuario(usuarios):
+    intentos = 0
+    while intentos < 3:
+        cuenta_input = input("Ingrese su número de cuenta: ")
+        pin_input = input("Ingrese su PIN: ")
+        for usuario in usuarios:
+            if usuario.numero_cuenta == cuenta_input and usuario.pin == pin_input:
+                return usuario
+        print("Datos incorrectos. Intente nuevamente.")
+        intentos += 1
+    return None
 
 # Base de datos simulada
 usuarios = [
@@ -52,19 +67,7 @@ nombre = input("Ingrese su nombre completo: ")
 apellido = extraer_apellido(nombre)
 print(f"Su apellido es: {apellido} y tiene {len(apellido)} letras.")
 
-cuenta_encontrada = None
-intentos = 0
-
-while intentos < 3 and not cuenta_encontrada:
-    cuenta_input = input("Ingrese su número de cuenta: ")
-    pin_input = input("Ingrese su PIN: ")
-    for usuario in usuarios:
-        if usuario.numero_cuenta == cuenta_input and validar_credenciales(usuario, pin_input):
-            cuenta_encontrada = usuario
-            break
-    if not cuenta_encontrada:
-        print("Datos incorrectos. Intente nuevamente.")
-        intentos += 1
+cuenta_encontrada = autenticar_usuario(usuarios)
 
 if not cuenta_encontrada:
     print("Demasiados intentos fallidos. Programa finalizado.")
@@ -81,16 +84,28 @@ else:
 
         if opcion == "1":
             print(f"Su saldo actual es: ${cuenta_encontrada.consultar_saldo()}")
+
         elif opcion == "2":
-            monto = float(input("Ingrese el monto a depositar: "))
-            nuevo_saldo = cuenta_encontrada.depositar(monto)
-            print(f"Depósito exitoso. Nuevo saldo: ${nuevo_saldo}")
+            try:
+                monto = float(input("Ingrese el monto a depositar: "))
+                nuevo_saldo = cuenta_encontrada.depositar(monto)
+                if nuevo_saldo is not None:
+                    print(f"Depósito exitoso. Nuevo saldo: ${nuevo_saldo}")
+                else:
+                    print("Error: El monto debe ser mayor a cero.")
+            except ValueError:
+                print("Error: Debe ingresar un número válido.")
+
         elif opcion == "3":
-            monto = float(input("Ingrese el monto a retirar: "))
-            if cuenta_encontrada.retirar(monto):
-                print(f"Retiro exitoso. Nuevo saldo: ${cuenta_encontrada.saldo}")
-            else:
-                print("Fondos insuficientes.")
+            try:
+                monto = float(input("Ingrese el monto a retirar: "))
+                if cuenta_encontrada.retirar(monto):
+                    print(f"Retiro exitoso. Nuevo saldo: ${cuenta_encontrada.saldo}")
+                else:
+                    print("Retiro fallido. Verifique el monto o su saldo disponible.")
+            except ValueError:
+                print("Error: Debe ingresar un número válido.")
+
         elif opcion == "4":
             palabra = input("Ingrese palabra clave para buscar en historial: ")
             resultados = cuenta_encontrada.buscar_en_historial(palabra)
@@ -100,6 +115,7 @@ else:
                     print("-", mov)
             else:
                 print("No se encontraron movimientos con esa palabra.")
+
         elif opcion == "5":
             print("Gracias por usar el cajero. ¡Hasta pronto!")
             salir = True
